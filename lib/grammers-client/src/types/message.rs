@@ -652,21 +652,21 @@ impl Message {
         self.client.unpin_message(&self.chat(), self.raw.id).await
     }
 
-    /// Refetch this message, mutating all of its properties in-place.
-    ///
-    /// No changes will be made to the message if it fails to be fetched.
+    /// Refetch this message, return new message.
     ///
     /// Shorthand for `Client::get_messages_by_id`.
-    pub async fn refetch(&self) -> Result<(), InvocationError> {
+    pub async fn refetch(&self) -> Result<Self, InvocationError> {
         // When fetching a single message, if it fails, Telegram should respond with RPC error.
         // If it succeeds we will have the single message present which we can unwrap.
-        self.client
+        let message = self
+            .client
             .get_messages_by_id(&self.chat(), &[self.raw.id])
             .await?
             .pop()
             .unwrap()
             .unwrap();
-        todo!("actually mutate self after get_messages_by_id returns `Message`")
+
+        Ok(message)
     }
 
     /// Download the message media in this message if applicable.
