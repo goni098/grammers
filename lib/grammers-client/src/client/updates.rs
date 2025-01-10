@@ -11,14 +11,15 @@
 use super::Client;
 use crate::types::{ChatMap, Update};
 use futures_util::future::{select, Either};
+use grammers_mtsender::utils::sleep_until;
 pub use grammers_mtsender::{AuthorizationError, InvocationError};
 use grammers_session::channel_id;
 pub use grammers_session::{PrematureEndReason, UpdateState};
 use grammers_tl_types as tl;
 use std::pin::pin;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::time::sleep_until;
+use std::time::Duration;
+use web_time::Instant;
 
 /// How long to wait after warning the user that the updates limit was exceeded.
 const UPDATE_LIMIT_EXCEEDED_LOG_COOLDOWN: Duration = Duration::from_secs(300);
@@ -49,7 +50,7 @@ impl Client {
         loop {
             let (update, chats) = self.next_raw_update().await?;
 
-            if let Some(update) = Update::new(&self, update, &chats) {
+            if let Some(update) = Update::new(self, update, &chats) {
                 return Ok(update);
             }
         }
@@ -280,6 +281,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     fn ensure_next_update_future_impls_send() {
         if false {
             // We just want it to type-check, not actually run.

@@ -6,18 +6,27 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use crate::types::{photo_sizes::PhotoSize, Downloadable, Media, Uploaded};
+use crate::types::{photo_sizes::PhotoSize, Downloadable, Uploaded};
 use crate::utils::generate_random_id;
 use crate::Client;
 use futures_util::stream::{FuturesUnordered, StreamExt as _};
 use grammers_mtsender::InvocationError;
 use grammers_tl_types as tl;
-use std::{io::SeekFrom, path::Path, sync::Arc};
-use tokio::sync::mpsc::unbounded_channel;
+use std::sync::Arc;
 use tokio::{
-    fs,
-    io::{self, AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
+    io::{self, AsyncRead, AsyncReadExt},
     sync::Mutex as AsyncMutex,
+};
+
+#[cfg(feature = "fs")]
+use {
+    crate::types::Media,
+    std::{io::SeekFrom, path::Path},
+    tokio::{
+        fs,
+        io::{AsyncSeekExt, AsyncWriteExt},
+        sync::mpsc::unbounded_channel,
+    },
 };
 
 pub const MIN_CHUNK_SIZE: i32 = 4 * 1024;
@@ -104,7 +113,7 @@ impl DownloadIter {
     /// skip less data, modify the `chunk_size` before calling this method, and then reset it to
     /// any value you want.
     pub fn skip_chunks(mut self, n: i32) -> Self {
-        self.request.offset += (self.request.limit * n) as i64;
+        self.request.offset += self.request.limit as i64 * (n as i64);
         self
     }
 
@@ -192,6 +201,7 @@ impl Client {
     /// # Ok(())
     /// # }
     /// ```
+    #[cfg(feature = "fs")]
     pub async fn download_media<P: AsRef<Path>>(
         &self,
         downloadable: &Downloadable,
@@ -235,6 +245,7 @@ impl Client {
         Client::load(path, &mut download).await
     }
 
+    #[cfg(feature = "fs")]
     async fn load<P: AsRef<Path>>(path: P, download: &mut DownloadIter) -> Result<(), io::Error> {
         let mut file = fs::File::create(path).await?;
         while let Some(chunk) = download
@@ -249,6 +260,7 @@ impl Client {
     }
 
     /// Downloads a `Document` to specified path using multiple connections
+    #[cfg(feature = "fs")]
     async fn download_media_concurrent<P: AsRef<Path>>(
         &self,
         media: &Media,
@@ -502,6 +514,7 @@ impl Client {
     /// ```
     ///
     /// [`InputMessage`]: crate::InputMessage
+    #[cfg(feature = "fs")]
     pub async fn upload_file<P: AsRef<Path>>(&self, path: P) -> Result<Uploaded, io::Error> {
         let path = path.as_ref();
 
